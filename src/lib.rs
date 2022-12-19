@@ -8,6 +8,8 @@ pub mod pairings;
 pub mod prover;
 pub mod verifier;
 
+pub mod fast_eval;
+
 #[cfg(test)]
 mod lib_tests {
     use ark_bn254::{Bn254, Fr};
