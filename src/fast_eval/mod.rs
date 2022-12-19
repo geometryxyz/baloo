@@ -24,6 +24,7 @@ impl<F: FftField> FastEval<F> {
         let k: usize = n.trailing_zeros().try_into().unwrap();
         let mut subproduct_tree = vec![vec![]; k + 1]; 
 
+        subproduct_tree[0] = Vec::with_capacity(n);
         for &root in roots {
             subproduct_tree[0].push(DensePolynomial::from_coefficients_slice(&[-root, F::one()]));
         }
@@ -31,6 +32,7 @@ impl<F: FftField> FastEval<F> {
         let mut nodes_on_layer = n;
         for i in 1..=k {
             nodes_on_layer /= 2;
+            subproduct_tree[i] = Vec::with_capacity(nodes_on_layer);
             for j in 0..nodes_on_layer {
                 let lhs_node = subproduct_tree[i-1][2*j].clone();
                 let rhs_node = subproduct_tree[i-1][2*j+1].clone();
