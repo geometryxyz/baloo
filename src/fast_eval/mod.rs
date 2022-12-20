@@ -127,12 +127,11 @@ mod fast_eval_tests {
     #[test]
     fn test_non_multiplicative_subgroup() {
         let mut rng = test_rng();
-        let n: usize = 8; 
+        let n: usize = 128; 
 
         let roots: Vec<_> = (0..n).map(|_| Fr::rand(&mut rng)).collect();
         let fast_eval = FastEval::build_tree(&roots);
         let basis = construct_lagrange_basis(&roots);
-
 
         let mut vanishing = DensePolynomial::from_coefficients_slice(&[Fr::one()]);
         for ui in roots {
