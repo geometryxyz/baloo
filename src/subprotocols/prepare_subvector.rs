@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use crate::{error::Error, utils::construct_lagrange_basis};
+use crate::{error::Error, utils::construct_lagrange_basis, fast_eval::{FastEval, self}};
 use ark_ff::{batch_inversion, FftField};
 use ark_poly::{
     domain, univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
@@ -29,21 +29,23 @@ impl<F: FftField> SubvectorPreprocessor<F> {
         (
             DensePolynomial<F>,
             DensePolynomial<F>,
-            DensePolynomial<F>,
+            Vec<usize>,
             Vec<DensePolynomial<F>>,
+            FastEval<F>
         ),
         Error,
     > {
-        let domain_m = GeneralEvaluationDomain::<F>::new(a.len()).unwrap();
         let domain_h = GeneralEvaluationDomain::<F>::new(c.len()).unwrap();
+        let domain_m = GeneralEvaluationDomain::<F>::new(a.len()).unwrap();
 
         let mut roots_mapping = BTreeMap::<F, (F, Vec<usize>)>::default();
+        let mut col = vec![0usize; domain_m.size()];
         let mut v_evals = Vec::with_capacity(domain_m.size());
 
         /*
            In order to optimize subvector search we preserve quite complex structure: mapping: root_of_unity => (value, indices of a)
            - BTreeMap will provide us sorted roots and corresponding values, from which we construct t(X)
-           - col: [m] -> [k] is given as inverse of mapping: index of t => index of a that we also keep in map
+           - col: [m] -> [k] is given as inverse of mapping: root_i => a_indices, which we also keep in btree map
            - To optimize further we keep array of subvector roots as evals of v(X)
         */
         for (j, aj) in a.iter().enumerate() {
@@ -64,37 +66,20 @@ impl<F: FftField> SubvectorPreprocessor<F> {
         let roots: Vec<F> = roots_mapping.keys().map(|eta_i| eta_i.clone()).collect();
         let t_evals: Vec<F> = roots_mapping.values().map(|(ti, _)| ti.clone()).collect();
 
-        let mut zi = DensePolynomial::from_coefficients_slice(&[F::one()]);
-        for &eta_i in roots.iter() {
-            let current_root = DensePolynomial::from_coefficients_slice(&[eta_i, -F::one()]);
-            zi = &zi * &current_root;
-        }
-
         let tau_basis = construct_lagrange_basis(&roots);
-        let mut tau_normalizers: Vec<_> = tau_basis
-            .iter()
-            .map(|tau_i| tau_i.evaluate(&F::zero()))
-            .collect();
-        batch_inversion(&mut tau_normalizers);
-
-        let tau_normalized_basis: Vec<_> = tau_basis
-            .iter()
-            .zip(tau_normalizers.iter())
-            .map(|(tau_i, &tau_i_zero_inverse)| tau_i * tau_i_zero_inverse)
-            .collect();
+        let tau_fast_eval = FastEval::prepare(&roots);
 
         let mut t = DensePolynomial::default();
         for (&t_eval, tau_i) in t_evals.iter().zip(tau_basis.iter()) {
             t += (t_eval, tau_i);
         }
 
-        let mut tau_col_j_hat = vec![DensePolynomial::default(); domain_m.size()];
         for (j, (_, indices)) in roots_mapping.values().enumerate() {
             for &i in indices {
-                tau_col_j_hat[i] += &tau_normalized_basis[j];
+                col[i] = j;
             }
         }
 
-        Ok((zi, v, t, tau_col_j_hat))
+        Ok((v, t, col, tau_basis, tau_fast_eval))
     }
 }

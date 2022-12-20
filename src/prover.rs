@@ -36,11 +36,13 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (zi, v, t, tau_col_j_hat) = SubvectorPreprocessor::compute_subvector_related_oracles(
+        let (v, t, col, tau_col_j_hat, tau_fast_eval) = SubvectorPreprocessor::compute_subvector_related_oracles(
             &phi_evals,
             &table_key.table_index_mapping,
         )
         .unwrap();
+        let zi = tau_fast_eval.vanishing.clone();
+
 
         let zi_commit = Kzg::<E>::commit_g2(&ck.srs_g2, &zi).into();
         let v_commit = Kzg::<E>::commit_g1(&ck.srs_g1, &v).into();

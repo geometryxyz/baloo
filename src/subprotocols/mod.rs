@@ -7,9 +7,9 @@ mod subprotocols_tests {
     use std::collections::BTreeMap;
 
     use ark_bn254::Fr;
-    use ark_ff::{FftField, Field, One, UniformRand, Zero};
+    use ark_ff::{FftField, Field, One, UniformRand, Zero, batch_inversion};
     use ark_poly::{
-        domain::general::GeneralElements, univariate::DensePolynomial, EvaluationDomain,
+        univariate::DensePolynomial, EvaluationDomain,
         GeneralEvaluationDomain, Polynomial, UVPolynomial,
     };
     use ark_std::{
@@ -18,9 +18,9 @@ mod subprotocols_tests {
     };
 
     use super::prepare_subvector::SubvectorPreprocessor;
-    use crate::subprotocols::{
+    use crate::{subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
-    };
+    }};
 
     fn prepare<F: FftField, R: RngCore>(
         h: usize,
@@ -44,7 +44,8 @@ mod subprotocols_tests {
 
         let domain_v = GeneralEvaluationDomain::<Fr>::new(m).unwrap();
 
-        let subvector_positions = [95usize, 43, 16, 100, 4, 4, 12, 43];
+        // 4, 12, 16, 26, 43, 83, 95, 100
+        let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 83];
         let (c_evals, a_evals) = prepare::<Fr, StdRng>(h, m, &subvector_positions, &mut rng);
 
         let c_mapping: BTreeMap<Fr, usize> = c_evals
@@ -53,16 +54,19 @@ mod subprotocols_tests {
             .map(|(i, ci)| (ci.clone(), i))
             .collect();
 
-        let (zi, v, t, tau_col_j_hat) =
+        let (v, t, col, tau_basis, tau_fast_eval) =
             SubvectorPreprocessor::compute_subvector_related_oracles(&a_evals, &c_mapping).unwrap();
+        let zi = tau_fast_eval.vanishing.clone();
+        let mut tau_normalizers = tau_fast_eval.evaluate_lagrange_polys(&Fr::zero());
+        batch_inversion(&mut tau_normalizers);
 
         let alpha = Fr::rand(&mut rng);
 
         let mu_alphas = domain_v.evaluate_all_lagrange_coefficients(alpha);
 
         let mut d = DensePolynomial::default();
-        for (&mu_alpha, tau_hat_col_j) in mu_alphas.iter().zip(tau_col_j_hat.iter()) {
-            d += (mu_alpha, tau_hat_col_j)
+        for (i, &mu_alpha) in mu_alphas.iter().enumerate() {
+            d+= (mu_alpha, &(&tau_basis[col[i]] * tau_normalizers[col[i]]));
         }
 
         let phi = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&a_evals));
@@ -77,10 +81,9 @@ mod subprotocols_tests {
         // check inner product
         assert_eq!(lhs, rhs);
 
-        let e_evals: Vec<_> = tau_col_j_hat
-            .iter()
-            .map(|tau| tau.evaluate(&beta))
-            .collect();
+        let tau_beta = tau_fast_eval.evaluate_lagrange_polys(&beta);
+
+        let e_evals: Vec<_> = (0..domain_v.size()).map(|i| tau_normalizers[col[i]] * tau_beta[col[i]]).collect();
         let e = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&e_evals));
 
         // check that E and D are colspace and rowspace encodings of same matrix
