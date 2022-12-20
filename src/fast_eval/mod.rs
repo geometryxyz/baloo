@@ -5,12 +5,11 @@ use ark_poly::{univariate::{DensePolynomial, DenseOrSparsePolynomial}, UVPolynom
     Fast evaluation algorithm based on reminders tree
  */
 pub struct FastEval<F: FftField> {
-    pub(crate) domain_name: String,
     pub(crate) subproduct_tree: Vec<Vec<DensePolynomial<F>>>
 }
 
 impl<F: FftField> FastEval<F> {
-    pub fn build_tree(domain_name: &str, roots: &[F]) -> Self {
+    pub fn build_tree(roots: &[F]) -> Self {
         let n = roots.len(); 
 
         if n == 0 {
@@ -43,13 +42,18 @@ impl<F: FftField> FastEval<F> {
         }
 
         Self { 
-            domain_name: domain_name.into(),
             subproduct_tree 
         }
 
     }
 
-    pub fn multipoint_eval(&self, n: usize, root: (usize, usize), f: &DensePolynomial<F>) -> Vec<F> {
+    pub fn eval_over_domain(&self, f: &DensePolynomial<F>) -> Vec<F> {
+        let n = self.subproduct_tree[0].len(); 
+        let k = self.subproduct_tree.len() - 1; 
+        self.multipoint_eval(n, (k, 0), f)
+    }
+
+    fn multipoint_eval(&self, n: usize, root: (usize, usize), f: &DensePolynomial<F>) -> Vec<F> {
         assert!(f.degree() < n);
 
         if n == 1 {
@@ -84,16 +88,15 @@ mod fast_eval_tests {
     fn test_fft() {
         let mut rng = test_rng();
         let n: usize = 1024; 
-        let k: usize = n.trailing_zeros().try_into().unwrap();
         let domain = GeneralEvaluationDomain::<Fr>::new(n).unwrap();
 
         let roots: Vec<Fr> = domain.elements().collect();
-        let fast_eval = FastEval::build_tree("omegas", &roots);
+        let fast_eval = FastEval::build_tree(&roots);
 
         let f = DensePolynomial::<Fr>::rand(n - 1, &mut rng);
         let f_fft_evals = domain.fft(&f); 
 
-        let f_evals = fast_eval.multipoint_eval(n, (k, 0), &f);
+        let f_evals = fast_eval.eval_over_domain(&f);
         assert_eq!(f_evals, f_fft_evals);
     }
 }
