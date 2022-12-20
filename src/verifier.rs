@@ -34,7 +34,7 @@ impl<E: PairingEngine> Verifier<E> {
         let g2_gen = E::G2Affine::prime_subgroup_generator();
 
         let bound = domain_v.size();
-        let d = srs_g1.len();
+        let d = srs_g1.len() - 1;
         let s = d - bound + 1;
         let (x_pow_s_g1, x_pow_s_plus_1_g1, x_pow_m_g1) =
             { (srs_g1[s], srs_g1[s + 1], srs_g1[bound]) };

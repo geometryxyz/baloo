@@ -77,7 +77,7 @@ impl<E: PairingEngine> Kzg<E> {
             / &DensePolynomial::from_coefficients_slice(&[-opening_challenge, E::Fr::one()]);
 
         if let Some(bound) = bound {
-            let d = srs.len();
+            let d = srs.len() - 1;
             let s = d - bound + 1;
 
             let x_upper = x_pow_d::<E::Fr>(s);
@@ -117,7 +117,7 @@ impl<E: PairingEngine> Kzg<E> {
 
         batched = DensePolynomial::from_coefficients_slice(&batched.coeffs[1..]);
 
-        let d = srs.len();
+        let d = srs.len() - 1;
         let s = d - bound + 1;
 
         let x_exact = -x_pow_d::<E::Fr>(bound);

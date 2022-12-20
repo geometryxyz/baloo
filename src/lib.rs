@@ -59,7 +59,7 @@ mod lib_tests {
         let m = 8;
         let domain_v = GeneralEvaluationDomain::<Fr>::new(m).unwrap();
 
-        let subvector_positions = [95usize, 43, 16, 100, 4, 4, 12, 43];
+        let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 43];
 
         let (ck, table_key, table_witness) =
             prepare::<Bn254, StdRng>(h, m, &subvector_positions, &mut rng);

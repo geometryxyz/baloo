@@ -37,6 +37,7 @@ impl<F: FftField> FastEval<F> {
                 let lhs_node = subproduct_tree[i-1][2*j].clone();
                 let rhs_node = subproduct_tree[i-1][2*j+1].clone();
 
+                // since we require that domain is smooth, this multiplication is O(nlog(n))
                 subproduct_tree[i].push(&lhs_node * &rhs_node);
             }
         }
