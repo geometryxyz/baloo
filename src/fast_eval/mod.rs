@@ -1,8 +1,9 @@
-use ark_ff::FftField;
-use ark_poly::{univariate::{DensePolynomial, DenseOrSparsePolynomial}, UVPolynomial, domain, Polynomial};
+use ark_ff::{FftField, BigInteger, Zero, batch_inversion};
+use ark_poly::{univariate::{DensePolynomial, DenseOrSparsePolynomial}, UVPolynomial, Polynomial};
 
 /*
     Fast evaluation algorithm based on reminders tree
+    We require FftField to have multiplication in O(nlog(n))
  */
 pub struct FastEval<F: FftField> {
     pub(crate) subproduct_tree: Vec<Vec<DensePolynomial<F>>>
@@ -36,7 +37,6 @@ impl<F: FftField> FastEval<F> {
                 let lhs_node = subproduct_tree[i-1][2*j].clone();
                 let rhs_node = subproduct_tree[i-1][2*j+1].clone();
 
-                // since we require that domain is smooth, this multiplication is O(nlog(n))
                 subproduct_tree[i].push(&lhs_node * &rhs_node);
             }
         }
@@ -53,11 +53,31 @@ impl<F: FftField> FastEval<F> {
         self.multipoint_eval(n, (k, 0), f)
     }
 
+    pub fn evaluate_lagrange_polys(&self, vanishing: &DensePolynomial<F>, point: &F) -> Vec<F> {
+        // TODO: store vanishing and vanishing_derivative in fast_eval
+        let mut vanishing_derivative = DensePolynomial::default();
+        let mut monomials_evals = Vec::with_capacity(self.subproduct_tree[0].len());
+        let zi_d_or_s = DenseOrSparsePolynomial::from(vanishing);
+        for root_monomial in &self.subproduct_tree[0] {
+            monomials_evals.push(root_monomial.evaluate(point));
+            let (q, r) = zi_d_or_s.divide_with_q_and_r(&(root_monomial.into())).unwrap(); 
+            assert!(r.is_zero());
+            vanishing_derivative += &q;
+        }
+
+        let zi_eval = vanishing.evaluate(&point); 
+
+        let ri_inverses = self.eval_over_domain(&vanishing_derivative);
+        let mut ri_monomial_evals = ri_inverses.iter().zip(monomials_evals.iter()).map(|(&ri, &beta_minus_omega_i)| ri * beta_minus_omega_i).collect::<Vec<_>>();
+        batch_inversion(&mut ri_monomial_evals);
+
+        ri_monomial_evals.iter().map(|&l_part_i| l_part_i * zi_eval).collect()
+    }
+
     fn multipoint_eval(&self, n: usize, root: (usize, usize), f: &DensePolynomial<F>) -> Vec<F> {
         assert!(f.degree() < n);
 
         if n == 1 {
-            // it's just constant since f.degree() < 1
             return vec![f.coeffs[0]] 
         }
 
@@ -77,11 +97,15 @@ impl<F: FftField> FastEval<F> {
     }
 }
 
+
 #[cfg(test)]
 mod fast_eval_tests {
     use ark_bn254::Fr;
-    use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, univariate::DensePolynomial, UVPolynomial};
+    use ark_ff::{UniformRand, One};
+    use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, univariate::DensePolynomial, UVPolynomial, Polynomial};
     use ark_std::test_rng;
+
+    use crate::utils::construct_lagrange_basis;
 
     use super::FastEval; 
     #[test]
@@ -98,5 +122,27 @@ mod fast_eval_tests {
 
         let f_evals = fast_eval.eval_over_domain(&f);
         assert_eq!(f_evals, f_fft_evals);
+    }
+
+    #[test]
+    fn test_non_multiplicative_subgroup() {
+        let mut rng = test_rng();
+        let n: usize = 8; 
+
+        let roots: Vec<_> = (0..n).map(|_| Fr::rand(&mut rng)).collect();
+        let fast_eval = FastEval::build_tree(&roots);
+        let basis = construct_lagrange_basis(&roots);
+
+
+        let mut vanishing = DensePolynomial::from_coefficients_slice(&[Fr::one()]);
+        for ui in roots {
+            vanishing = &vanishing * &DensePolynomial::from_coefficients_slice(&[-ui, Fr::one()]);
+        }
+
+        let beta = Fr::rand(&mut rng); 
+        let lagrange_evals = fast_eval.evaluate_lagrange_polys(&vanishing, &beta);
+
+        let lagrange_evals_slow = basis.iter().map(|li| li.evaluate(&beta)).collect::<Vec<_>>();
+        assert_eq!(lagrange_evals, lagrange_evals_slow);
     }
 }
