@@ -82,7 +82,7 @@ impl<E: PairingEngine> Verifier<E> {
             let mut lhs_zi = x_pow_s_plus_1_g1.mul(gamma_squared);
             lhs_zi.add_assign_mixed(&g1_gen);
 
-            let lhs_x_pow_s_plus_1 = proof.r.mul(gamma_cube);
+            let lhs_x_pow_s_plus_1 = x_pow_m_g1.mul(-gamma_squared) + proof.r.mul(gamma_cube);
 
             let res = E::product_of_pairings(&[
                 (lhs_1.into_affine().into(), g2_gen.into()),

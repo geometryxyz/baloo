@@ -11,7 +11,8 @@ impl<F: PrimeField> WellFormation<F> {
     pub fn prove(
         e: &DensePolynomial<F>,
         v: &DensePolynomial<F>,
-        zi: &DensePolynomial<F>,
+        zi_at_zero: F,
+        zi_at_beta: F,
         domain_v: GeneralEvaluationDomain<F>,
         beta: F,
     ) -> DensePolynomial<F> {
@@ -19,7 +20,7 @@ impl<F: PrimeField> WellFormation<F> {
         lhs[0] -= F::one();
         lhs = &lhs * e;
 
-        lhs[0] += zi.evaluate(&beta) * zi.evaluate(&F::zero()).inverse().unwrap();
+        lhs[0] += zi_at_beta * zi_at_zero.inverse().unwrap();
 
         let (q, r) = lhs.divide_by_vanishing_poly(domain_v).unwrap();
         assert!(r.is_zero());

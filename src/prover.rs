@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ark_ec::PairingEngine;
-use ark_ff::{Field, One, Zero};
+use ark_ff::{Field, One, Zero, batch_inversion};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
     UVPolynomial,
@@ -36,12 +36,11 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (v, t, col, tau_col_j_hat, tau_fast_eval) = SubvectorExtractor::compute_subvector_related_oracles(
-            &phi_evals,
-            &table_key.table_index_mapping,
-        )
-        .unwrap();
-        let zi = tau_fast_eval.vanishing.clone();
+        let (v, t, col, poly_processor) =
+            SubvectorExtractor::compute_subvector_related_oracles(&phi_evals, &table_key.table_index_mapping).unwrap();
+        let zi = poly_processor.get_vanishing();
+        let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&E::Fr::zero());
+        batch_inversion(&mut tau_normalizers);
 
 
         let zi_commit = Kzg::<E>::commit_g2(&ck.srs_g2, &zi).into();
@@ -52,11 +51,14 @@ impl<E: PairingEngine> Prover<E> {
 
         let mu_alphas = domain_v.evaluate_all_lagrange_coefficients(alpha);
 
-        let mut d = DensePolynomial::default();
-        for (&mu_alpha, tau_hat_col_j) in mu_alphas.iter().zip(tau_col_j_hat.iter()) {
-            d += (mu_alpha, tau_hat_col_j)
+        let mut d_evals = vec![E::Fr::zero(); domain_v.size()];
+        for i in 0..domain_v.size() {
+            d_evals[col[i]] += tau_normalizers[col[i]] * mu_alphas[i];
         }
 
+        let d = poly_processor.interpolate(&d_evals);
+
+        // let phi = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&a_evals));
         let phi_at_alpha = table_witness.phi.evaluate(&alpha);
         let (q_2, r) = GeneralizedInnerProduct::prove_with_rx(&d, &t, phi_at_alpha, &zi);
 
@@ -66,16 +68,23 @@ impl<E: PairingEngine> Prover<E> {
 
         let beta = E::Fr::from(231984213152u64);
 
-        let e_evals: Vec<_> = tau_col_j_hat
-            .iter()
-            .map(|tau| tau.evaluate(&beta))
-            .collect();
+        let lhs = d.evaluate(&beta) * t.evaluate(&beta) - phi_at_alpha;
+        let rhs = r.evaluate(&beta) + zi.evaluate(&beta) * q_2.evaluate(&beta);
+
+        // check inner product
+        assert_eq!(lhs, rhs);
+
+        let tau_beta = poly_processor.batch_evaluate_lagrange_basis(&beta);
+
+        let e_evals: Vec<_> = (0..domain_v.size()).map(|i| tau_normalizers[col[i]] * tau_beta[col[i]]).collect();
         let e = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&e_evals));
 
-        // sanity
+        // check that E and D are colspace and rowspace encodings of same matrix
         assert_eq!(e.evaluate(&alpha), d.evaluate(&beta));
 
-        let q_1 = WellFormation::prove(&e, &v, &zi, domain_v, beta);
+        let zi_at_zero = zi.evaluate(&E::Fr::zero());
+        let zi_at_beta = zi.evaluate(&beta);
+        let q_1 = WellFormation::prove(&e, &v, zi_at_zero, zi_at_beta, domain_v, beta);
 
         let e_commit = Kzg::<E>::commit_g1(&ck.srs_g1, &e).into();
         let q_1_commit = Kzg::<E>::commit_g1(&ck.srs_g1, &q_1).into();
@@ -90,8 +99,8 @@ impl<E: PairingEngine> Prover<E> {
         let e_at_alpha = e.evaluate(&alpha);
         let e_at_rho = e.evaluate(&rho);
 
-        let zi_at_zero = zi.evaluate(&E::Fr::zero());
-        let zi_at_beta = zi.evaluate(&beta);
+        // let zi_at_zero = zi.evaluate(&E::Fr::zero());
+        // let zi_at_beta = zi.evaluate(&beta);
 
         let mut p1 = &(&t * e_at_alpha) - &r;
         p1 += (-zi_at_beta, &q_2);
@@ -118,7 +127,7 @@ impl<E: PairingEngine> Prover<E> {
         let w2 = Kzg::<E>::batch_open_g1_at_zero_with_bounds(
             &ck.srs_g1,
             &[zi.clone(), r.clone()],
-            &[DegreeBound::LessThan, DegreeBound::LessThan],
+            &[DegreeBound::Exact, DegreeBound::LessThan],
             gamma,
             domain_v.size(),
         );

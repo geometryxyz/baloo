@@ -90,7 +90,9 @@ mod subprotocols_tests {
         // check that E and D are colspace and rowspace encodings of same matrix
         assert_eq!(e.evaluate(&alpha), d.evaluate(&beta));
 
-        let q_1 = WellFormation::prove(&e, &v, &zi, domain_v, beta);
+        let zi_at_zero = zi.evaluate(&Fr::zero());
+        let zi_at_beta = zi.evaluate(&beta);
+        let q_1 = WellFormation::prove(&e, &v, zi_at_zero, zi_at_beta, domain_v, beta);
 
         // check well formation of lookup matrix
         let lhs = e.evaluate(&alpha) * (beta * v.evaluate(&alpha) - Fr::one())

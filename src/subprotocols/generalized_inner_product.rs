@@ -66,9 +66,31 @@ mod generalized_inner_product_tests {
         test_rng,
     };
 
-    use crate::utils::construct_lagrange_basis;
-
     use super::GeneralizedInnerProduct;
+
+
+    /// given x coords construct Li polynomials
+    pub fn construct_lagrange_basis<F: FftField>(evaluation_domain: &[F]) -> Vec<DensePolynomial<F>> {
+        let mut bases = Vec::with_capacity(evaluation_domain.len());
+        for i in 0..evaluation_domain.len() {
+            let mut l_i = DensePolynomial::from_coefficients_slice(&[F::one()]);
+            let x_i = evaluation_domain[i];
+            for j in 0..evaluation_domain.len() {
+                if j != i {
+                    let xi_minus_xj_inv = (x_i - evaluation_domain[j]).inverse().unwrap();
+                    l_i = &l_i
+                        * &DensePolynomial::from_coefficients_slice(&[
+                            -evaluation_domain[j] * xi_minus_xj_inv,
+                            xi_minus_xj_inv,
+                        ]);
+                }
+            }
+
+            bases.push(l_i);
+        }
+
+        bases
+    }
 
     pub fn setup<F: FftField, R: RngCore>(
         n: usize,

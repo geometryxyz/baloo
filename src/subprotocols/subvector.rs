@@ -1,9 +1,9 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use crate::{error::Error, utils::construct_lagrange_basis};
+use crate::error::Error;
 use ark_ff::{batch_inversion, FftField};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
+    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain,
     UVPolynomial,
 };
 use fast_eval::{PolyProcessorStrategy, PolyProcessor};

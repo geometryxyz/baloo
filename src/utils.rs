@@ -62,29 +62,6 @@ pub fn unsafe_setup_from_tau<E: PairingEngine, R: RngCore>(
     (srs_g1, srs_g2)
 }
 
-/// given x coords construct Li polynomials
-pub fn construct_lagrange_basis<F: FftField>(evaluation_domain: &[F]) -> Vec<DensePolynomial<F>> {
-    let mut bases = Vec::with_capacity(evaluation_domain.len());
-    for i in 0..evaluation_domain.len() {
-        let mut l_i = DensePolynomial::from_coefficients_slice(&[F::one()]);
-        let x_i = evaluation_domain[i];
-        for j in 0..evaluation_domain.len() {
-            if j != i {
-                let xi_minus_xj_inv = (x_i - evaluation_domain[j]).inverse().unwrap();
-                l_i = &l_i
-                    * &DensePolynomial::from_coefficients_slice(&[
-                        -evaluation_domain[j] * xi_minus_xj_inv,
-                        xi_minus_xj_inv,
-                    ]);
-            }
-        }
-
-        bases.push(l_i);
-    }
-
-    bases
-}
-
 pub fn x_pow_d<F: Field>(d: usize) -> DensePolynomial<F> {
     let mut coeffs = vec![F::zero(); d];
     coeffs.push(F::one());
