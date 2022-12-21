@@ -1,11 +1,13 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use crate::{error::Error, utils::construct_lagrange_basis, fast_eval::{FastEval, self}};
+use crate::{error::Error, utils::construct_lagrange_basis};
 use ark_ff::{batch_inversion, FftField};
 use ark_poly::{
-    domain, univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
+    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
     UVPolynomial,
 };
+use fast_eval::{PolyProcessorStrategy, PolyProcessor};
+// use fast_eval::*;
 
 /*
    Given public low degree extension of vector c and witness vector a, find subvector t of c such that for each a_j there exists some root w_i and value t_i, s.t. a_j = t_i, and c(w_i) = t_i
@@ -17,11 +19,11 @@ use ark_poly::{
    Suppose values in c are distinct and that len is power of 2
 */
 
-pub struct SubvectorPreprocessor<F: FftField> {
+pub struct SubvectorExtractor<F: FftField> {
     _f: PhantomData<F>,
 }
 
-impl<F: FftField> SubvectorPreprocessor<F> {
+impl<F: FftField> SubvectorExtractor<F> {
     pub fn compute_subvector_related_oracles(
         a: &[F],
         c: &BTreeMap<F, usize>,
@@ -30,8 +32,7 @@ impl<F: FftField> SubvectorPreprocessor<F> {
             DensePolynomial<F>,
             DensePolynomial<F>,
             Vec<usize>,
-            Vec<DensePolynomial<F>>,
-            FastEval<F>
+            Box<dyn PolyProcessor<F>>
         ),
         Error,
     > {
@@ -64,13 +65,10 @@ impl<F: FftField> SubvectorPreprocessor<F> {
         let v = DensePolynomial::from_coefficients_slice(&domain_m.ifft(&v_evals));
 
         let roots: Vec<F> = roots_mapping.keys().map(|eta_i| eta_i.clone()).collect();
+        let poly_processor = PolyProcessorStrategy::resolve(&roots).unwrap();
+
         let t_evals: Vec<F> = roots_mapping.values().map(|(ti, _)| ti.clone()).collect();
-
-        let tau_basis = construct_lagrange_basis(&roots);
-        let mut tau_fast_eval = FastEval::prepare(&roots);
-        tau_fast_eval.compute_ri_evals();
-
-        let t = tau_fast_eval.interpolate(&t_evals);
+        let t = poly_processor.interpolate(&t_evals);
 
         for (j, (_, indices)) in roots_mapping.values().enumerate() {
             for &i in indices {
@@ -78,6 +76,6 @@ impl<F: FftField> SubvectorPreprocessor<F> {
             }
         }
 
-        Ok((v, t, col, tau_basis, tau_fast_eval))
+        Ok((v, t, col, poly_processor))
     }
 }

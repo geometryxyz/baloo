@@ -1,5 +1,5 @@
 pub mod generalized_inner_product;
-pub mod prepare_subvector;
+pub mod subvector;
 pub mod well_formation;
 
 #[cfg(test)]
@@ -17,7 +17,7 @@ mod subprotocols_tests {
         test_rng,
     };
 
-    use super::prepare_subvector::SubvectorPreprocessor;
+    use super::subvector::SubvectorExtractor;
     use crate::{subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
     }};
@@ -53,30 +53,22 @@ mod subprotocols_tests {
             .map(|(i, ci)| (ci.clone(), i))
             .collect();
 
-        let (v, t, col, tau_basis, tau_fast_eval) =
-            SubvectorPreprocessor::compute_subvector_related_oracles(&a_evals, &c_mapping).unwrap();
-        let zi = tau_fast_eval.vanishing.clone();
-        let mut tau_normalizers = tau_fast_eval.evaluate_lagrange_polys(&Fr::zero());
+        let (v, t, col, poly_processor) =
+            SubvectorExtractor::compute_subvector_related_oracles(&a_evals, &c_mapping).unwrap();
+        let zi = poly_processor.get_vanishing();
+        let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&Fr::zero());
         batch_inversion(&mut tau_normalizers);
 
         let alpha = Fr::rand(&mut rng);
 
         let mu_alphas = domain_v.evaluate_all_lagrange_coefficients(alpha);
 
-        let mut d = DensePolynomial::default();
-        for (i, &mu_alpha) in mu_alphas.iter().enumerate() {
-            d+= (mu_alpha, &(&tau_basis[col[i]] * tau_normalizers[col[i]]));
+        let mut d_evals = vec![Fr::zero(); domain_v.size()];
+        for i in 0..m {
+            d_evals[col[i]] += tau_normalizers[col[i]] * mu_alphas[i];
         }
 
-        {
-            let mut d_evals = vec![Fr::zero(); domain_v.size()];
-            for i in 0..m {
-                d_evals[col[i]] += tau_normalizers[col[i]] * mu_alphas[i];
-            }
-
-            let d_interpolated = tau_fast_eval.interpolate(&d_evals);
-            assert_eq!(d_interpolated, d);
-        };
+        let d = poly_processor.interpolate(&d_evals);
 
         let phi = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&a_evals));
         let phi_at_alpha = phi.evaluate(&alpha);
@@ -90,7 +82,7 @@ mod subprotocols_tests {
         // check inner product
         assert_eq!(lhs, rhs);
 
-        let tau_beta = tau_fast_eval.evaluate_lagrange_polys(&beta);
+        let tau_beta = poly_processor.batch_evaluate_lagrange_basis(&beta);
 
         let e_evals: Vec<_> = (0..domain_v.size()).map(|i| tau_normalizers[col[i]] * tau_beta[col[i]]).collect();
         let e = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&e_evals));

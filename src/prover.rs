@@ -13,7 +13,7 @@ use crate::{
     kzg::{DegreeBound, Kzg},
     subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct,
-        prepare_subvector::SubvectorPreprocessor, well_formation::WellFormation,
+        subvector::SubvectorExtractor, well_formation::WellFormation,
     },
 };
 
@@ -36,7 +36,7 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (v, t, col, tau_col_j_hat, tau_fast_eval) = SubvectorPreprocessor::compute_subvector_related_oracles(
+        let (v, t, col, tau_col_j_hat, tau_fast_eval) = SubvectorExtractor::compute_subvector_related_oracles(
             &phi_evals,
             &table_key.table_index_mapping,
         )
