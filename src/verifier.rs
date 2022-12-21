@@ -36,7 +36,7 @@ impl<E: PairingEngine> Verifier<E> {
         let bound = domain_v.size();
         let d = srs_g1.len() - 1;
         let s = d - bound + 1;
-        let (x_pow_s_g1, x_pow_s_plus_1_g1, x_pow_m_g1) =
+        let (_, x_pow_s_plus_1_g1, x_pow_m_g1) =
             { (srs_g1[s], srs_g1[s + 1], srs_g1[bound]) };
         let (x_pow_s_g2, x_pow_s_plus_1_g2) = { (srs_g2[s], srs_g2[s + 1]) };
 

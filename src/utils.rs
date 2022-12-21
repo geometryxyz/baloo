@@ -1,5 +1,5 @@
 use ark_ec::{AffineCurve, PairingEngine};
-use ark_ff::{FftField, Field, One, PrimeField};
+use ark_ff::{Field, One, PrimeField};
 use ark_poly::{univariate::DensePolynomial, UVPolynomial};
 use ark_std::rand::RngCore;
 use ark_std::UniformRand;

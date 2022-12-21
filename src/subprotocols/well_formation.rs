@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ark_ff::{PrimeField, Zero};
-use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain, Polynomial};
+use ark_poly::{univariate::DensePolynomial, GeneralEvaluationDomain};
 
 pub struct WellFormation<F: PrimeField> {
     _f: PhantomData<F>,
