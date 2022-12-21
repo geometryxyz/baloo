@@ -67,12 +67,10 @@ impl<F: FftField> SubvectorPreprocessor<F> {
         let t_evals: Vec<F> = roots_mapping.values().map(|(ti, _)| ti.clone()).collect();
 
         let tau_basis = construct_lagrange_basis(&roots);
-        let tau_fast_eval = FastEval::prepare(&roots);
+        let mut tau_fast_eval = FastEval::prepare(&roots);
+        tau_fast_eval.compute_ri_evals();
 
-        let mut t = DensePolynomial::default();
-        for (&t_eval, tau_i) in t_evals.iter().zip(tau_basis.iter()) {
-            t += (t_eval, tau_i);
-        }
+        let t = tau_fast_eval.interpolate(&t_evals);
 
         for (j, (_, indices)) in roots_mapping.values().enumerate() {
             for &i in indices {

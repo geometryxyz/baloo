@@ -1,9 +1,10 @@
-use ark_ff::{FftField, BigInteger, Zero, batch_inversion};
+use ark_ff::{FftField, Zero, batch_inversion};
 use ark_poly::{univariate::{DensePolynomial, DenseOrSparsePolynomial}, UVPolynomial, Polynomial};
 
 /*
-    Fast evaluation algorithm based on reminders tree
-    We require FftField to have multiplication in O(nlog(n))
+    - Fast evaluation and interpolation algorithm based on reminders tree
+    - FftField is required in order to have multiplication in O(nlog(n))
+    - Additional elements are computed for maximal baloo optimization
  */
 pub struct FastEval<F: FftField> {
     pub(crate) vanishing: DensePolynomial<F>, 
@@ -90,6 +91,13 @@ impl<F: FftField> FastEval<F> {
         self.interpolate_from_subtree((0, evals.len() - 1), (k, 0), &evals)
     }
 
+    pub fn reconstruct_vanishing_derivative(&self) -> DensePolynomial<F> {
+        let n = self.subproduct_tree[0].len(); 
+        let k = self.subproduct_tree.len() - 1; 
+        let evals = vec![F::one(); n];
+        self.interpolate_from_subtree((0, evals.len() - 1), (k, 0), &evals)
+    }
+
     pub fn interpolate_from_subtree(&self, index_bounds: (usize, usize), root: (usize, usize), evals: &Vec<F>) -> DensePolynomial<F> {
         if index_bounds.1 - index_bounds.0 == 0 {
             return DensePolynomial::from_coefficients_slice(&[evals[index_bounds.0]])
@@ -115,11 +123,19 @@ impl<F: FftField> FastEval<F> {
 
         let zi_eval = self.vanishing.evaluate(&point); 
 
-        let ri_inverses = self.eval_over_domain(&self.vanishing_derivative);
-        let mut ri_monomial_evals = ri_inverses.iter().zip(monomials_evals.iter()).map(|(&ri, &beta_minus_omega_i)| ri * beta_minus_omega_i).collect::<Vec<_>>();
-        batch_inversion(&mut ri_monomial_evals);
 
-        ri_monomial_evals.iter().map(|&l_part_i| l_part_i * zi_eval).collect()
+        // If ri_evals are already computed, we use them, if not, we combine it's inverses with monomial evals and then batch invert it
+        let li_part_evals = if let Some(ri_evals) = self.ri_evals.as_ref() {
+            batch_inversion(&mut monomials_evals);
+            ri_evals.iter().zip(monomials_evals.iter()).map(|(&ri, &beta_minus_omega_i)| ri * beta_minus_omega_i).collect::<Vec<_>>()
+        } else {
+            let ri_inverses = self.eval_over_domain(&self.vanishing_derivative);
+            let mut ri_monomial_evals = ri_inverses.iter().zip(monomials_evals.iter()).map(|(&ri, &beta_minus_omega_i)| ri * beta_minus_omega_i).collect::<Vec<_>>();
+            batch_inversion(&mut ri_monomial_evals);
+            ri_monomial_evals
+        };
+
+        li_part_evals.iter().map(|&l_part_i| l_part_i * zi_eval).collect()
     }
 
     fn multipoint_eval(&self, n: usize, root: (usize, usize), f: &DensePolynomial<F>) -> Vec<F> {
@@ -149,7 +165,7 @@ impl<F: FftField> FastEval<F> {
 #[cfg(test)]
 mod fast_eval_tests {
     use ark_bn254::Fr;
-    use ark_ff::{UniformRand};
+    use ark_ff::{UniformRand, One};
     use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, univariate::DensePolynomial, UVPolynomial, Polynomial};
     use ark_std::test_rng;
 
@@ -208,5 +224,59 @@ mod fast_eval_tests {
         }
 
         assert_eq!(poly_fast, poly_slow);
+    }
+
+    #[test]
+    fn test_derivative() {
+        let mut rng = test_rng();
+        let n: usize = 128; 
+
+        let roots: Vec<_> = (0..n).map(|_| Fr::rand(&mut rng)).collect();
+        let fast_eval = FastEval::prepare(&roots);
+
+        let vh_derivative = fast_eval.reconstruct_vanishing_derivative();
+        assert_eq!(vh_derivative, fast_eval.vanishing_derivative);
+    }
+
+    #[test]
+    fn test_monomial_multiplication_in_smaller_fft() {
+        let mut rng = test_rng(); 
+        
+        let u0 = Fr::rand(&mut rng); 
+        let u1 = Fr::rand(&mut rng);
+
+        let m0 = DensePolynomial::from_coefficients_slice(&[-u0, Fr::one()]);
+        let m1 = DensePolynomial::from_coefficients_slice(&[-u1, Fr::one()]);
+        let prod_poly = &m0 * &m1;
+        // println!("prod poly: {:?}", prod_poly);
+        for coeff in prod_poly.coeffs() {
+            println!("ci: {}", coeff);
+        }
+
+        println!("===========================");
+
+        let n = 2; 
+        let domain_2 = GeneralEvaluationDomain::<Fr>::new(n).unwrap(); 
+        let domain_2n = GeneralEvaluationDomain::<Fr>::new(2*n).unwrap(); 
+
+        let m0_evals = domain_2n.fft(&m0); 
+        let m1_evals = domain_2n.fft(&m1);
+
+        let prod_evals: Vec<Fr> = m0_evals.iter().zip(m1_evals.iter()).map(|(&m0, &m1)| m0 * m1).collect();
+        let prod = DensePolynomial::from_coefficients_slice(&domain_2n.ifft(&prod_evals));   
+        assert_eq!(prod, prod_poly);
+        
+        let m0_evals = domain_2.fft(&m0); 
+        let m1_evals = domain_2.fft(&m1);
+        let prod_evals: Vec<Fr> = m0_evals.iter().zip(m1_evals.iter()).map(|(&m0, &m1)| m0 * m1).collect();
+        let mut prod = DensePolynomial::from_coefficients_slice(&domain_2.ifft(&prod_evals));   
+        for coeff in prod.coeffs() {
+            println!("ci: {}", coeff);
+        }
+
+        prod[0] -= Fr::one(); 
+        prod.coeffs.push(Fr::one());
+        assert_eq!(prod, prod_poly);
+
     }
 }

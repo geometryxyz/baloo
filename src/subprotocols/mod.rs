@@ -44,7 +44,6 @@ mod subprotocols_tests {
 
         let domain_v = GeneralEvaluationDomain::<Fr>::new(m).unwrap();
 
-        // 4, 12, 16, 26, 43, 83, 95, 100
         let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 83];
         let (c_evals, a_evals) = prepare::<Fr, StdRng>(h, m, &subvector_positions, &mut rng);
 
@@ -68,6 +67,16 @@ mod subprotocols_tests {
         for (i, &mu_alpha) in mu_alphas.iter().enumerate() {
             d+= (mu_alpha, &(&tau_basis[col[i]] * tau_normalizers[col[i]]));
         }
+
+        {
+            let mut d_evals = vec![Fr::zero(); domain_v.size()];
+            for i in 0..m {
+                d_evals[col[i]] += tau_normalizers[col[i]] * mu_alphas[i];
+            }
+
+            let d_interpolated = tau_fast_eval.interpolate(&d_evals);
+            assert_eq!(d_interpolated, d);
+        };
 
         let phi = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&a_evals));
         let phi_at_alpha = phi.evaluate(&alpha);
