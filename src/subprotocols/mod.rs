@@ -7,10 +7,10 @@ mod subprotocols_tests {
     use std::collections::BTreeMap;
 
     use ark_bn254::Fr;
-    use ark_ff::{FftField, Field, One, UniformRand, Zero, batch_inversion};
+    use ark_ff::{batch_inversion, FftField, Field, One, UniformRand, Zero};
     use ark_poly::{
-        univariate::DensePolynomial, EvaluationDomain,
-        GeneralEvaluationDomain, Polynomial, UVPolynomial,
+        univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
+        UVPolynomial,
     };
     use ark_std::{
         rand::{rngs::StdRng, RngCore},
@@ -18,9 +18,9 @@ mod subprotocols_tests {
     };
 
     use super::subvector::SubvectorExtractor;
-    use crate::{subprotocols::{
+    use crate::subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
-    }};
+    };
 
     fn prepare<F: FftField, R: RngCore>(
         h: usize,
@@ -84,7 +84,9 @@ mod subprotocols_tests {
 
         let tau_beta = poly_processor.batch_evaluate_lagrange_basis(&beta);
 
-        let e_evals: Vec<_> = (0..domain_v.size()).map(|i| tau_normalizers[col[i]] * tau_beta[col[i]]).collect();
+        let e_evals: Vec<_> = (0..domain_v.size())
+            .map(|i| tau_normalizers[col[i]] * tau_beta[col[i]])
+            .collect();
         let e = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&e_evals));
 
         // check that E and D are colspace and rowspace encodings of same matrix

@@ -36,19 +36,17 @@ impl<E: PairingEngine> Verifier<E> {
         let bound = domain_v.size();
         let d = srs_g1.len() - 1;
         let s = d - bound + 1;
-        let (_, x_pow_s_plus_1_g1, x_pow_m_g1) =
-            { (srs_g1[s], srs_g1[s + 1], srs_g1[bound]) };
+        let (_, x_pow_s_plus_1_g1, x_pow_m_g1) = { (srs_g1[s], srs_g1[s + 1], srs_g1[bound]) };
         let (x_pow_s_g2, x_pow_s_plus_1_g2) = { (srs_g2[s], srs_g2[s + 1]) };
 
         let p1 = proof.t.mul(proof.u1)
-        + g1_gen.mul(-proof.u2)
-        + proof.q_2.mul(-proof.u4)
-        + proof.r.mul(-E::Fr::one());
+            + g1_gen.mul(-proof.u2)
+            + proof.q_2.mul(-proof.u4)
+            + proof.r.mul(-E::Fr::one());
 
         let p2 = proof.v.mul(proof.u5 * beta)
             + g1_gen.mul(-proof.u5 + proof.u3.inverse().unwrap() * proof.u4)
             + proof.q_1.mul(-domain_v.evaluate_vanishing_polynomial(rho));
-        
 
         // TODO - add caulk+ check
 
@@ -59,7 +57,7 @@ impl<E: PairingEngine> Verifier<E> {
                     .add_mixed(&proof.e))
             .into()
         };
-        
+
         // pairing 2
         {
             let lhs_1 = proof.w1.mul(alpha).into_affine();
@@ -68,16 +66,16 @@ impl<E: PairingEngine> Verifier<E> {
             let res = E::product_of_pairings(&[
                 (lhs_1.into(), g2_gen.into()),
                 (lhs_x.into(), srs_g2[1].into()),
-                (lhs_x_pow_s.into(), x_pow_s_g2.into())
+                (lhs_x_pow_s.into(), x_pow_s_g2.into()),
             ]);
 
             assert_eq!(res, E::Fqk::one());
         }
 
-        // pairing 3 
+        // pairing 3
         {
-            let lhs_1 = g1_gen.mul(-proof.u3) + proof.r.mul(gamma); 
-            let lhs_x = -proof.w2; 
+            let lhs_1 = g1_gen.mul(-proof.u3) + proof.r.mul(gamma);
+            let lhs_x = -proof.w2;
 
             let mut lhs_zi = x_pow_s_plus_1_g1.mul(gamma_squared);
             lhs_zi.add_assign_mixed(&g1_gen);
@@ -88,7 +86,10 @@ impl<E: PairingEngine> Verifier<E> {
                 (lhs_1.into_affine().into(), g2_gen.into()),
                 (lhs_x.into(), srs_g2[1].into()),
                 (lhs_zi.into_affine().into(), proof.zi.into()),
-                (lhs_x_pow_s_plus_1.into_affine().into(), x_pow_s_plus_1_g2.into())
+                (
+                    lhs_x_pow_s_plus_1.into_affine().into(),
+                    x_pow_s_plus_1_g2.into(),
+                ),
             ]);
 
             assert_eq!(res, E::Fqk::one());
@@ -96,7 +97,9 @@ impl<E: PairingEngine> Verifier<E> {
 
         // pairing 4
         {
-            let mut lhs_1 = proof.w3.mul(beta) + p1.mul(gamma_squared.into_repr()) + g1_gen.mul(-(proof.u1 + gamma * proof.u4));
+            let mut lhs_1 = proof.w3.mul(beta)
+                + p1.mul(gamma_squared.into_repr())
+                + g1_gen.mul(-(proof.u1 + gamma * proof.u4));
             lhs_1.add_assign_mixed(&proof.d);
 
             let lhs_x = -proof.w3;
@@ -108,7 +111,7 @@ impl<E: PairingEngine> Verifier<E> {
                 (lhs_x.into(), srs_g2[1].into()),
                 (lhs_zi.into_affine().into(), proof.zi.into()),
             ]);
-    
+
             assert_eq!(res, E::Fqk::one());
         }
 
@@ -117,12 +120,12 @@ impl<E: PairingEngine> Verifier<E> {
             let lhs_1 = proof.w4.mul(rho) + p2.mul(gamma.into_repr()) + g1_gen.mul(-proof.u5);
             let lhs_1 = lhs_1.add_mixed(&proof.e).into_affine();
 
-            let lhs_x = -proof.w4; 
+            let lhs_x = -proof.w4;
             let res = E::product_of_pairings(&[
                 (lhs_1.into(), g2_gen.into()),
                 (lhs_x.into(), srs_g2[1].into()),
             ]);
-    
+
             assert_eq!(res, E::Fqk::one());
         }
     }

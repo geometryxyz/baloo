@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use ark_ec::PairingEngine;
-use ark_ff::{Field, One, Zero, batch_inversion};
+use ark_ff::{batch_inversion, Field, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
     UVPolynomial,
@@ -12,8 +12,8 @@ use crate::{
     error::Error,
     kzg::{DegreeBound, Kzg},
     subprotocols::{
-        generalized_inner_product::GeneralizedInnerProduct,
-        subvector::SubvectorExtractor, well_formation::WellFormation,
+        generalized_inner_product::GeneralizedInnerProduct, subvector::SubvectorExtractor,
+        well_formation::WellFormation,
     },
 };
 
@@ -36,12 +36,14 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (v, t, col, poly_processor) =
-            SubvectorExtractor::compute_subvector_related_oracles(&phi_evals, &table_key.table_index_mapping).unwrap();
+        let (v, t, col, poly_processor) = SubvectorExtractor::compute_subvector_related_oracles(
+            &phi_evals,
+            &table_key.table_index_mapping,
+        )
+        .unwrap();
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&E::Fr::zero());
         batch_inversion(&mut tau_normalizers);
-
 
         let zi_commit = Kzg::<E>::commit_g2(&ck.srs_g2, &zi).into();
         let v_commit = Kzg::<E>::commit_g1(&ck.srs_g1, &v).into();
@@ -76,7 +78,9 @@ impl<E: PairingEngine> Prover<E> {
 
         let tau_beta = poly_processor.batch_evaluate_lagrange_basis(&beta);
 
-        let e_evals: Vec<_> = (0..domain_v.size()).map(|i| tau_normalizers[col[i]] * tau_beta[col[i]]).collect();
+        let e_evals: Vec<_> = (0..domain_v.size())
+            .map(|i| tau_normalizers[col[i]] * tau_beta[col[i]])
+            .collect();
         let e = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&e_evals));
 
         // check that E and D are colspace and rowspace encodings of same matrix
@@ -132,7 +136,13 @@ impl<E: PairingEngine> Prover<E> {
             domain_v.size(),
         );
 
-        let w3 = Kzg::<E>::batch_open_g1(&ck.srs_g1, &[d.clone(), zi.clone(), p1.clone()], beta, gamma, None);
+        let w3 = Kzg::<E>::batch_open_g1(
+            &ck.srs_g1,
+            &[d.clone(), zi.clone(), p1.clone()],
+            beta,
+            gamma,
+            None,
+        );
         let w4 = Kzg::<E>::batch_open_g1(&ck.srs_g1, &[e, p2], rho, gamma, None);
 
         let proof = Proof {

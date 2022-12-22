@@ -4,6 +4,7 @@ pub mod subprotocols;
 pub mod utils;
 
 pub mod data_structures;
+pub mod precomputed;
 pub mod prover;
 pub mod verifier;
 

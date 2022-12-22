@@ -3,10 +3,9 @@ use std::{collections::BTreeMap, marker::PhantomData};
 use crate::error::Error;
 use ark_ff::{batch_inversion, FftField};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain,
-    UVPolynomial,
+    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
 };
-use fast_eval::{PolyProcessorStrategy, PolyProcessor};
+use fast_eval::{PolyProcessor, PolyProcessorStrategy};
 // use fast_eval::*;
 
 /*
@@ -32,7 +31,7 @@ impl<F: FftField> SubvectorExtractor<F> {
             DensePolynomial<F>,
             DensePolynomial<F>,
             Vec<usize>,
-            Box<dyn PolyProcessor<F>>
+            Box<dyn PolyProcessor<F>>,
         ),
         Error,
     > {

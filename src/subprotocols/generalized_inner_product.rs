@@ -68,9 +68,10 @@ mod generalized_inner_product_tests {
 
     use super::GeneralizedInnerProduct;
 
-
     /// given x coords construct Li polynomials
-    pub fn construct_lagrange_basis<F: FftField>(evaluation_domain: &[F]) -> Vec<DensePolynomial<F>> {
+    pub fn construct_lagrange_basis<F: FftField>(
+        evaluation_domain: &[F],
+    ) -> Vec<DensePolynomial<F>> {
         let mut bases = Vec::with_capacity(evaluation_domain.len());
         for i in 0..evaluation_domain.len() {
             let mut l_i = DensePolynomial::from_coefficients_slice(&[F::one()]);
