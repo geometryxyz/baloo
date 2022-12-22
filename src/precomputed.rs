@@ -86,7 +86,7 @@ pub mod precomputed_tests {
     use ark_bn254::{Bn254, Fr, G1Affine, Fq12};
     use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
     use ark_ff::{One, Zero};
-    use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, univariate::DensePolynomial};
+    use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, univariate::DensePolynomial, UVPolynomial};
     use ark_std::{rand::rngs::StdRng, test_rng};
     use fast_eval::PolyProcessorStrategy;
 
@@ -138,5 +138,59 @@ pub mod precomputed_tests {
     }
 
     #[test]
-    fn test_c() {}
+    fn test_c() {
+        let mut rng = test_rng();
+        let n = 64;
+        let domain = GeneralEvaluationDomain::<Fr>::new(n).unwrap();
+
+        let (srs_g1, srs_g2) = unsafe_setup_from_rng::<Bn254, StdRng>(n + 1, n + 1, &mut rng);
+
+        let c = DensePolynomial::<Fr>::rand(n - 1, &mut rng);
+        let c_evals = domain.fft(&c);
+
+        let mut precomputed = Precomputed::<Bn254>::empty();
+
+        // precompute all
+        let indices: Vec<usize> = (0..n).collect();
+        precomputed.precompute_w1(&srs_g1, &indices, &c, &domain);
+
+
+        let subvector_indices = [4usize, 12, 19, 25, 31, 45, 61, 60];
+        let roots: Vec<Fr> = subvector_indices
+            .iter()
+            .map(|index| domain.element(*index))
+            .collect();
+
+        let poly_processor = PolyProcessorStrategy::resolve(&roots).unwrap();
+        let zi = poly_processor.get_vanishing();
+        let ri = poly_processor.get_ri();
+
+        let t_evals: Vec<_> = subvector_indices
+            .iter()
+            .map(|index| c_evals[*index])
+            .collect();
+
+        let t = poly_processor.interpolate(&t_evals);
+
+        let q = &(&c - &t) / &zi;
+        assert_eq!(&q * &zi, &c - &t);
+
+        // commit phase
+        let c_cm = Kzg::<Bn254>::commit_g1(&srs_g1, &c);
+        let t = Kzg::<Bn254>::commit_g1(&srs_g1, &t);
+        let lhs_one = t - c_cm; // same as - (c - t)
+        
+        let mut w1 = G1Affine::zero().into_projective();
+        for (i, index) in subvector_indices.iter().enumerate() {
+            w1 += &(precomputed.get_w1_i(index).mul(ri[i]));
+        }
+
+        let zi = Kzg::<Bn254>::commit_g2(&srs_g2, &zi);
+        let res = Bn254::product_of_pairings(&[
+            (lhs_one.into_affine().into(), srs_g2[0].into()), 
+            (w1.into_affine().into(), zi.into_affine().into())
+        ]);
+        assert_eq!(res, Fq12::one());
+
+    }
 }
