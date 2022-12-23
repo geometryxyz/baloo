@@ -83,7 +83,7 @@ impl<E: PairingEngine> Precomputed<E> {
 
 #[cfg(test)]
 pub mod precomputed_tests {
-    use ark_bn254::{Bn254, Fr, G1Affine, Fq12};
+    use ark_bn254::{Bn254, Fr, G1Affine, Fq12, G1Projective};
     use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
     use ark_ff::{One, Zero};
     use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, univariate::DensePolynomial, UVPolynomial};
@@ -122,7 +122,7 @@ pub mod precomputed_tests {
         assert_ne!(ri, vec![Fr::one()]); // tmp check while it's not implemented for FftBased Processor
 
         // commitment phase
-        let mut w2 = G1Affine::zero().into_projective();
+        let mut w2 = G1Projective::zero();
         for (i, index) in subvector_indices.iter().enumerate() {
             w2 += &(precomputed.get_w2_i(index).mul(ri[i]));
         }
@@ -155,7 +155,7 @@ pub mod precomputed_tests {
         precomputed.precompute_w1(&srs_g1, &indices, &c, &domain);
 
 
-        let subvector_indices = [4usize, 12, 19, 25, 31, 45, 61, 60];
+        let subvector_indices = [4usize, 53, 19, 59, 31, 45, 61, 60];
         let roots: Vec<Fr> = subvector_indices
             .iter()
             .map(|index| domain.element(*index))
@@ -180,7 +180,7 @@ pub mod precomputed_tests {
         let t = Kzg::<Bn254>::commit_g1(&srs_g1, &t);
         let lhs_one = t - c_cm; // same as - (c - t)
         
-        let mut w1 = G1Affine::zero().into_projective();
+        let mut w1 = G1Projective::zero();
         for (i, index) in subvector_indices.iter().enumerate() {
             w1 += &(precomputed.get_w1_i(index).mul(ri[i]));
         }

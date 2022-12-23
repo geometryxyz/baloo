@@ -31,6 +31,7 @@ impl<F: FftField> SubvectorExtractor<F> {
             DensePolynomial<F>,
             DensePolynomial<F>,
             Vec<usize>,
+            Vec<usize>,
             Box<dyn PolyProcessor<F>>,
         ),
         Error,
@@ -38,13 +39,13 @@ impl<F: FftField> SubvectorExtractor<F> {
         let domain_h = GeneralEvaluationDomain::<F>::new(c.len()).unwrap();
         let domain_m = GeneralEvaluationDomain::<F>::new(a.len()).unwrap();
 
-        let mut roots_mapping = BTreeMap::<F, (F, Vec<usize>)>::default();
+        let mut roots_mapping = BTreeMap::<F, (usize, F, Vec<usize>)>::default();
         let mut col = vec![0usize; domain_m.size()];
         let mut v_evals = Vec::with_capacity(domain_m.size());
 
         /*
            In order to optimize subvector search we preserve quite complex structure: mapping: root_of_unity => (value, indices of a)
-           - BTreeMap will provide us sorted roots and corresponding values, from which we construct t(X)
+           - BTreeMap will provide us with roots and evals from which we construct t(X)
            - col: [m] -> [k] is given as inverse of mapping: root_i => a_indices, which we also keep in btree map
            - To optimize further we keep array of subvector roots as evals of v(X)
         */
@@ -53,7 +54,7 @@ impl<F: FftField> SubvectorExtractor<F> {
                 Some(index) => {
                     let eta_i = domain_h.element(*index);
                     v_evals.push(eta_i);
-                    let (_, a_indices) = roots_mapping.entry(eta_i).or_insert((*aj, vec![]));
+                    let (_, _, a_indices) = roots_mapping.entry(eta_i).or_insert((*index, *aj, vec![]));
                     a_indices.push(j);
                 }
                 None => return Err(Error::ValueNotInTable),
@@ -63,18 +64,39 @@ impl<F: FftField> SubvectorExtractor<F> {
         batch_inversion(&mut v_evals);
         let v = DensePolynomial::from_coefficients_slice(&domain_m.ifft(&v_evals));
 
-        let roots: Vec<F> = roots_mapping.keys().map(|eta_i| eta_i.clone()).collect();
-        let poly_processor = PolyProcessorStrategy::resolve(&roots).unwrap();
+        let mut t_evals = Vec::with_capacity(roots_mapping.keys().len());
+        let mut subector_indices = Vec::with_capacity(roots_mapping.keys().len());
 
-        let t_evals: Vec<F> = roots_mapping.values().map(|(ti, _)| ti.clone()).collect();
-        let t = poly_processor.interpolate(&t_evals);
-
-        for (j, (_, indices)) in roots_mapping.values().enumerate() {
+        for (j, (root_index, t_eval, indices)) in roots_mapping.values().enumerate() {
             for &i in indices {
                 col[i] = j;
             }
+
+            t_evals.push(*t_eval);
+            subector_indices.push(*root_index);
         }
 
-        Ok((v, t, col, poly_processor))
+        // println!("{:?}", subector_indices);
+
+        let roots: Vec<F> = roots_mapping.keys().map(|eta_i| eta_i.clone()).collect();
+
+        // println!("=====================");
+
+        // for root in &roots {
+        //     println!("ri: {}", root);
+        // }
+
+        let poly_processor = PolyProcessorStrategy::resolve(&roots).unwrap();
+
+        // let t_evals: Vec<F> = roots_mapping.values().map(|(_, ti, _)| ti.clone()).collect();
+        let t = poly_processor.interpolate(&t_evals);
+
+        // for (j, (_, _, indices)) in roots_mapping.values().enumerate() {
+        //     for &i in indices {
+        //         col[i] = j;
+        //     }
+        // }
+
+        Ok((v, t, col, subector_indices, poly_processor))
     }
 }

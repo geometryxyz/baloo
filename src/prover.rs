@@ -13,8 +13,8 @@ use crate::{
     kzg::{DegreeBound, Kzg},
     subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct, subvector::SubvectorExtractor,
-        well_formation::WellFormation,
-    },
+        well_formation::WellFormation, caulk_plus_core::CaulkPlusCore,
+    }, precomputed::{self, Precomputed},
 };
 
 pub struct Prover<E: PairingEngine> {
@@ -24,6 +24,9 @@ pub struct Prover<E: PairingEngine> {
 impl<E: PairingEngine> Prover<E> {
     pub fn prove(
         ck: &CommitterKey<E>,
+        precomputed: &Precomputed<E>, 
+        // c_cm: &E::G1Affine, 
+        // cm: &E::G1Affine,
         table_key: &TableProvingKey<E::Fr>,
         table_witness: &TableWitness<E::Fr>,
     ) -> Result<Proof<E>, Error> {
@@ -36,11 +39,12 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (v, t, col, poly_processor) = SubvectorExtractor::compute_subvector_related_oracles(
+        let (v, t, col, subvector_indices, poly_processor) = SubvectorExtractor::compute_subvector_related_oracles(
             &phi_evals,
             &table_key.table_index_mapping,
         )
         .unwrap();
+
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&E::Fr::zero());
         batch_inversion(&mut tau_normalizers);
@@ -97,14 +101,10 @@ impl<E: PairingEngine> Prover<E> {
         let gamma = E::Fr::from(858374289743829u64);
 
         // Begin with KZG proofs and openings
-
-        // TODO: run Caulk+ core
+        let (a1, a2) = CaulkPlusCore::compute_quotients(&poly_processor.get_ri(), &subvector_indices, precomputed);
 
         let e_at_alpha = e.evaluate(&alpha);
         let e_at_rho = e.evaluate(&rho);
-
-        // let zi_at_zero = zi.evaluate(&E::Fr::zero());
-        // let zi_at_beta = zi.evaluate(&beta);
 
         let mut p1 = &(&t * e_at_alpha) - &r;
         p1 += (-zi_at_beta, &q_2);

@@ -1,4 +1,5 @@
 pub mod generalized_inner_product;
+pub mod caulk_plus_core;
 pub mod subvector;
 pub mod well_formation;
 
@@ -53,7 +54,7 @@ mod subprotocols_tests {
             .map(|(i, ci)| (ci.clone(), i))
             .collect();
 
-        let (v, t, col, poly_processor) =
+        let (v, t, col, subvector_indices, poly_processor) =
             SubvectorExtractor::compute_subvector_related_oracles(&a_evals, &c_mapping).unwrap();
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&Fr::zero());
