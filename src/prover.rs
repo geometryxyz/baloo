@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use ark_ec::PairingEngine;
+use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
 use ark_ff::{batch_inversion, Field, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
@@ -102,6 +102,7 @@ impl<E: PairingEngine> Prover<E> {
 
         // Begin with KZG proofs and openings
         let (a1, a2) = CaulkPlusCore::compute_quotients(&poly_processor.get_ri(), &subvector_indices, precomputed);
+        let a = a2.mul(gamma).add_mixed(&a1);
 
         let e_at_alpha = e.evaluate(&alpha);
         let e_at_rho = e.evaluate(&rho);
@@ -159,6 +160,7 @@ impl<E: PairingEngine> Prover<E> {
             u3: zi_at_zero,
             u4: zi_at_beta,
             u5: e_at_rho,
+            a: a.into(),
             w1,
             w2,
             w3,

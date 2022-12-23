@@ -1,10 +1,10 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::Neg};
 
 use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, One, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 
-use crate::data_structures::Proof;
+use crate::data_structures::{Proof, CommonInput};
 
 pub struct Verifier<E: PairingEngine> {
     _e: PhantomData<E>,
@@ -14,6 +14,7 @@ impl<E: PairingEngine> Verifier<E> {
     pub fn verify(
         srs_g1: &[E::G1Affine],
         srs_g2: &[E::G2Affine],
+        common_input: &CommonInput<E>,
         proof: &Proof<E>,
         cm: &E::G1Affine,
         domain_v: GeneralEvaluationDomain<E::Fr>,
@@ -57,6 +58,21 @@ impl<E: PairingEngine> Verifier<E> {
                     .add_mixed(&proof.e))
             .into()
         };
+
+        // pairing 1 
+        {
+            let lhs_1 = common_input.zh_commit.mul(gamma).add_mixed(&(common_input.c_commit + proof.t.neg()));
+            // let lhs_1 = common_input.zh_commit;
+            // let lhs_1 = common_input.c_commit + proof.t.neg();
+            let lhs_zi = proof.a.neg();
+
+            let res = E::product_of_pairings(&[
+                (lhs_1.into_affine().into(), g2_gen.into()),
+                (lhs_zi.into(), proof.zi.into()),
+            ]);
+
+            assert_eq!(res, E::Fqk::one());
+        }
 
         // pairing 2
         {

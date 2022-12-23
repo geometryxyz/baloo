@@ -68,6 +68,7 @@ pub struct Proof<E: PairingEngine> {
     pub(crate) u5: E::Fr, // e at rho
 
     // Opening proofs
+    pub(crate) a: E::G1Affine,
     pub(crate) w1: E::G1Affine,
     pub(crate) w2: E::G1Affine,
     pub(crate) w3: E::G1Affine,
