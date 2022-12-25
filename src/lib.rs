@@ -20,7 +20,7 @@ mod lib_tests {
     use ark_std::rand::RngCore;
     use ark_std::{test_rng, UniformRand};
 
-    use crate::data_structures::{CommitterKey, TableProvingKey, TableWitness, CommonInput};
+    use crate::data_structures::{CommitterKey, CommonInput, TableProvingKey, TableWitness};
     use crate::kzg::Kzg;
     use crate::precomputed::Precomputed;
     use crate::prover::Prover;
@@ -32,24 +32,30 @@ mod lib_tests {
         m: usize,
         subvector_positions: &[usize],
         rng: &mut R,
-    ) -> (CommitterKey<E>, TableProvingKey<E::Fr>, TableWitness<E::Fr>, Precomputed<E>, CommonInput<E>, E::G1Affine) {
+    ) -> (
+        CommitterKey<E>,
+        TableProvingKey<E::Fr>,
+        TableWitness<E::Fr>,
+        Precomputed<E>,
+        CommonInput<E>,
+        E::G1Affine,
+    ) {
         assert_eq!(subvector_positions.len(), m);
         let domain_h = GeneralEvaluationDomain::<E::Fr>::new(h).unwrap();
         let domain_v = GeneralEvaluationDomain::<E::Fr>::new(m).unwrap();
 
         let (srs_g1, srs_g2) = unsafe_setup_from_rng::<E, R>(h, h, rng);
 
-        let zh: DensePolynomial<E::Fr> = domain_h.vanishing_polynomial().into(); 
+        let zh: DensePolynomial<E::Fr> = domain_h.vanishing_polynomial().into();
         let zh_commit = Kzg::<E>::commit_g1(&srs_g1, &zh);
 
         let c_evals: Vec<_> = (0..h).map(|_| E::Fr::rand(rng)).collect();
         let c = DensePolynomial::from_coefficients_slice(&domain_h.ifft(&c_evals));
-        let c_cm = Kzg::<E>::commit_g1(&srs_g1, &c); 
+        let c_cm = Kzg::<E>::commit_g1(&srs_g1, &c);
 
         let phi_evals: Vec<_> = subvector_positions.iter().map(|&i| c_evals[i]).collect();
         let phi = DensePolynomial::from_coefficients_slice(&domain_v.ifft(&phi_evals));
         let cm = Kzg::<E>::commit_g1(&srs_g1, &phi);
-
 
         let table_key = TableProvingKey::from_table_evals(&c_evals);
         let table_witness = TableWitness {
@@ -61,7 +67,7 @@ mod lib_tests {
         let mut precomputed = Precomputed::<E>::empty();
         let indices: Vec<usize> = (0..h).collect();
 
-        // precompute all 
+        // precompute all
         precomputed.precompute_w2(&srs_g1, &indices, &domain_h);
         precomputed.precompute_w1(&srs_g1, &indices, &c, &domain_h);
 
@@ -72,7 +78,14 @@ mod lib_tests {
             zh_commit: zh_commit.into(),
         };
 
-        (ck, table_key, table_witness, precomputed, common_input, cm.into())
+        (
+            ck,
+            table_key,
+            table_witness,
+            precomputed,
+            common_input,
+            cm.into(),
+        )
     }
 
     #[test]
@@ -82,14 +95,13 @@ mod lib_tests {
         let m = 8;
         let domain_v = GeneralEvaluationDomain::<Fr>::new(m).unwrap();
 
-        let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 84];
+        let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 43];
 
         let (ck, table_key, table_witness, precomputed, common_input, cm) =
             prepare::<Bn254, StdRng>(h, m, &subvector_positions, &mut rng);
 
         let proof = Prover::prove(&ck, &precomputed, &table_key, &table_witness).unwrap();
 
-        // let cm = Kzg::<Bn254>::commit_g1(&ck.srs_g1, &table_witness.phi).into();
         Verifier::verify(&ck.srs_g1, &ck.srs_g2, &common_input, &proof, &cm, domain_v);
     }
 }

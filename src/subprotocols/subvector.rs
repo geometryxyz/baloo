@@ -1,10 +1,11 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use crate::error::Error;
+use crate::{error::Error, data_structures::TableProvingKey};
 use ark_ff::{batch_inversion, FftField};
 use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
+    domain, univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
 };
+use ark_std::rand::{Rng, RngCore};
 use fast_eval::{PolyProcessor, PolyProcessorStrategy};
 // use fast_eval::*;
 
@@ -25,7 +26,7 @@ pub struct SubvectorExtractor<F: FftField> {
 impl<F: FftField> SubvectorExtractor<F> {
     pub fn compute_subvector_related_oracles(
         a: &[F],
-        c: &BTreeMap<F, usize>,
+        table_pk: &TableProvingKey<F>,
     ) -> Result<
         (
             DensePolynomial<F>,
@@ -36,7 +37,7 @@ impl<F: FftField> SubvectorExtractor<F> {
         ),
         Error,
     > {
-        let domain_h = GeneralEvaluationDomain::<F>::new(c.len()).unwrap();
+        let domain_h = GeneralEvaluationDomain::<F>::new(table_pk.domain_size).unwrap();
         let domain_m = GeneralEvaluationDomain::<F>::new(a.len()).unwrap();
 
         let mut roots_mapping = BTreeMap::<usize, (F, F, Vec<usize>)>::default();
@@ -50,11 +51,12 @@ impl<F: FftField> SubvectorExtractor<F> {
            - To optimize further we keep array of subvector roots as evals of v(X)
         */
         for (j, aj) in a.iter().enumerate() {
-            match c.get(aj) {
+            match table_pk.table_index_mapping.get(aj) {
                 Some(index) => {
                     let eta_i = domain_h.element(*index);
                     v_evals.push(eta_i);
-                    let (_, _, a_indices) = roots_mapping.entry(*index).or_insert((eta_i, *aj, vec![]));
+                    let (_, _, a_indices) =
+                        roots_mapping.entry(*index).or_insert((eta_i, *aj, vec![]));
                     a_indices.push(j);
                 }
                 None => return Err(Error::ValueNotInTable),
@@ -76,11 +78,75 @@ impl<F: FftField> SubvectorExtractor<F> {
             roots.push(*eta_i);
         }
 
-        let subvector_indices: Vec<usize> = roots_mapping.keys().map(|i| i.clone()).collect();
+        let mut subvector_indices: Vec<usize> = roots_mapping.keys().map(|i| i.clone()).collect();
+
+        Self::pad_with_unused_roots(
+            &mut subvector_indices,
+            &mut roots,
+            &mut t_evals, 
+            &table_pk.table_values,
+            domain_m.size(),
+            &domain_h,
+        );
 
         let poly_processor = PolyProcessorStrategy::resolve(&roots).unwrap();
         let t = poly_processor.interpolate(&t_evals);
 
         Ok((v, t, col, subvector_indices, poly_processor))
     }
+
+    fn pad_with_unused_roots(
+        subvector_indices: &mut Vec<usize>,
+        roots: &mut Vec<F>,
+        t_evals: &mut Vec<F>,
+        c_evals: &Vec<F>,
+        m: usize,
+        domain: &GeneralEvaluationDomain<F>,
+    ) {
+        // subvector_indices are sorted
+        let mut curr_root = 0;
+        let mut to_append = m - subvector_indices.len();
+        let mut i = 0;
+        while to_append > 0 {
+            if i != subvector_indices[curr_root] {
+                to_append -= 1;
+                subvector_indices.push(i);
+                roots.push(domain.element(i));
+                t_evals.push(c_evals[i]);
+            } else {
+                curr_root += 1;
+            }
+
+            i += 1;
+        }
+    }
 }
+
+// #[cfg(test)]
+// mod subvector_tests {
+//     fn pad_with_unused_roots(subvector_indices: &Vec<usize>, m: usize) {
+//         // subvector_indices are sorted
+//         let mut curr_root = 0;
+//         let mut to_append = m - subvector_indices.len();
+//         let mut i = 0;
+//         while to_append > 0 {
+//             if i != subvector_indices[curr_root] {
+//                 to_append -= 1;
+//                 println!("append {}", i);
+//             }
+//             else {
+//                 curr_root += 1;
+//             }
+
+//             i += 1;
+//         }
+//     }
+
+//     #[test]
+//     fn test_padding() {
+//         let x = vec![5usize, 8, 9, 10, 15, 16, 21, 25, 39, 48];
+//         let m = 16;
+
+//         pad_with_unused_roots(&x, m);
+//     }
+// }

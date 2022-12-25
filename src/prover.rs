@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use ark_ec::{PairingEngine, AffineCurve, ProjectiveCurve};
+use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{batch_inversion, Field, One, Zero};
 use ark_poly::{
     univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, Polynomial,
@@ -11,10 +11,11 @@ use crate::{
     data_structures::{CommitterKey, Proof, TableProvingKey, TableWitness},
     error::Error,
     kzg::{DegreeBound, Kzg},
+    precomputed::{self, Precomputed},
     subprotocols::{
-        generalized_inner_product::GeneralizedInnerProduct, subvector::SubvectorExtractor,
-        well_formation::WellFormation, caulk_plus_core::CaulkPlusCore,
-    }, precomputed::{self, Precomputed},
+        caulk_plus_core::CaulkPlusCore, generalized_inner_product::GeneralizedInnerProduct,
+        subvector::SubvectorExtractor, well_formation::WellFormation,
+    },
 };
 
 pub struct Prover<E: PairingEngine> {
@@ -24,8 +25,8 @@ pub struct Prover<E: PairingEngine> {
 impl<E: PairingEngine> Prover<E> {
     pub fn prove(
         ck: &CommitterKey<E>,
-        precomputed: &Precomputed<E>, 
-        // c_cm: &E::G1Affine, 
+        precomputed: &Precomputed<E>,
+        // c_cm: &E::G1Affine,
         // cm: &E::G1Affine,
         table_key: &TableProvingKey<E::Fr>,
         table_witness: &TableWitness<E::Fr>,
@@ -39,11 +40,12 @@ impl<E: PairingEngine> Prover<E> {
             None => domain_v.fft(&table_witness.phi),
         };
 
-        let (v, t, col, subvector_indices, poly_processor) = SubvectorExtractor::compute_subvector_related_oracles(
-            &phi_evals,
-            &table_key.table_index_mapping,
-        )
-        .unwrap();
+        let (v, t, col, subvector_indices, poly_processor) =
+            SubvectorExtractor::compute_subvector_related_oracles(
+                &phi_evals,
+                &table_key,
+            )
+            .unwrap();
 
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&E::Fr::zero());
@@ -101,7 +103,11 @@ impl<E: PairingEngine> Prover<E> {
         let gamma = E::Fr::from(858374289743829u64);
 
         // Begin with KZG proofs and openings
-        let (a1, a2) = CaulkPlusCore::compute_quotients(&poly_processor.get_ri(), &subvector_indices, precomputed);
+        let (a1, a2) = CaulkPlusCore::compute_quotients(
+            &poly_processor.get_ri(),
+            &subvector_indices,
+            precomputed,
+        );
         let a = a2.mul(gamma).add_mixed(&a1);
 
         let e_at_alpha = e.evaluate(&alpha);

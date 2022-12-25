@@ -1,5 +1,5 @@
-pub mod generalized_inner_product;
 pub mod caulk_plus_core;
+pub mod generalized_inner_product;
 pub mod subvector;
 pub mod well_formation;
 
@@ -19,9 +19,9 @@ mod subprotocols_tests {
     };
 
     use super::subvector::SubvectorExtractor;
-    use crate::subprotocols::{
+    use crate::{subprotocols::{
         generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
-    };
+    }, data_structures::TableProvingKey};
 
     fn prepare<F: FftField, R: RngCore>(
         h: usize,
@@ -54,8 +54,14 @@ mod subprotocols_tests {
             .map(|(i, ci)| (ci.clone(), i))
             .collect();
 
+        let table_pk = TableProvingKey {
+            domain_size: h,
+            table_values: c_evals.clone(),
+            table_index_mapping: c_mapping.clone(),
+        };
+
         let (v, t, col, subvector_indices, poly_processor) =
-            SubvectorExtractor::compute_subvector_related_oracles(&a_evals, &c_mapping).unwrap();
+            SubvectorExtractor::compute_subvector_related_oracles(&a_evals, &table_pk).unwrap();
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&Fr::zero());
         batch_inversion(&mut tau_normalizers);

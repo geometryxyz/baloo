@@ -19,6 +19,7 @@ pub struct CommonInput<E: PairingEngine> {
 
 pub struct TableProvingKey<F: FftField> {
     pub(crate) domain_size: usize,
+    pub(crate) table_values: Vec<F>,
     pub(crate) table_index_mapping: BTreeMap<F, usize>,
 }
 
@@ -26,6 +27,7 @@ impl<F: FftField> TableProvingKey<F> {
     pub fn from_table_evals(c_evals: &[F]) -> Self {
         Self {
             domain_size: c_evals.len(),
+            table_values: c_evals.to_vec(),
             table_index_mapping: c_evals
                 .iter()
                 .enumerate()

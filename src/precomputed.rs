@@ -83,10 +83,12 @@ impl<E: PairingEngine> Precomputed<E> {
 
 #[cfg(test)]
 pub mod precomputed_tests {
-    use ark_bn254::{Bn254, Fr, G1Affine, Fq12, G1Projective};
+    use ark_bn254::{Bn254, Fq12, Fr, G1Affine, G1Projective};
     use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
     use ark_ff::{One, Zero};
-    use ark_poly::{EvaluationDomain, GeneralEvaluationDomain, univariate::DensePolynomial, UVPolynomial};
+    use ark_poly::{
+        univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
+    };
     use ark_std::{rand::rngs::StdRng, test_rng};
     use fast_eval::PolyProcessorStrategy;
 
@@ -131,8 +133,8 @@ pub mod precomputed_tests {
         let zh = Kzg::<Bn254>::commit_g1(&srs_g1, &zh);
 
         let res = Bn254::product_of_pairings(&[
-            ((-zh).into_affine().into(), srs_g2[0].into()), 
-            (w2.into_affine().into(), zi.into_affine().into())
+            ((-zh).into_affine().into(), srs_g2[0].into()),
+            (w2.into_affine().into(), zi.into_affine().into()),
         ]);
         assert_eq!(res, Fq12::one());
     }
@@ -153,7 +155,6 @@ pub mod precomputed_tests {
         // precompute all
         let indices: Vec<usize> = (0..n).collect();
         precomputed.precompute_w1(&srs_g1, &indices, &c, &domain);
-
 
         let subvector_indices = [4usize, 53, 19, 59, 31, 45, 61, 60];
         let roots: Vec<Fr> = subvector_indices
@@ -179,7 +180,7 @@ pub mod precomputed_tests {
         let c_cm = Kzg::<Bn254>::commit_g1(&srs_g1, &c);
         let t = Kzg::<Bn254>::commit_g1(&srs_g1, &t);
         let lhs_one = t - c_cm; // same as - (c - t)
-        
+
         let mut w1 = G1Projective::zero();
         for (i, index) in subvector_indices.iter().enumerate() {
             w1 += &(precomputed.get_w1_i(index).mul(ri[i]));
@@ -187,10 +188,9 @@ pub mod precomputed_tests {
 
         let zi = Kzg::<Bn254>::commit_g2(&srs_g2, &zi);
         let res = Bn254::product_of_pairings(&[
-            (lhs_one.into_affine().into(), srs_g2[0].into()), 
-            (w1.into_affine().into(), zi.into_affine().into())
+            (lhs_one.into_affine().into(), srs_g2[0].into()),
+            (w1.into_affine().into(), zi.into_affine().into()),
         ]);
         assert_eq!(res, Fq12::one());
-
     }
 }

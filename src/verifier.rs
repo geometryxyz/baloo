@@ -4,7 +4,7 @@ use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
 use ark_ff::{Field, One, PrimeField};
 use ark_poly::{EvaluationDomain, GeneralEvaluationDomain};
 
-use crate::data_structures::{Proof, CommonInput};
+use crate::data_structures::{CommonInput, Proof};
 
 pub struct Verifier<E: PairingEngine> {
     _e: PhantomData<E>,
@@ -59,9 +59,12 @@ impl<E: PairingEngine> Verifier<E> {
             .into()
         };
 
-        // pairing 1 
+        // pairing 1
         {
-            let lhs_1 = common_input.zh_commit.mul(gamma).add_mixed(&(common_input.c_commit + proof.t.neg()));
+            let lhs_1 = common_input
+                .zh_commit
+                .mul(gamma)
+                .add_mixed(&(common_input.c_commit + proof.t.neg()));
             // let lhs_1 = common_input.zh_commit;
             // let lhs_1 = common_input.c_commit + proof.t.neg();
             let lhs_zi = proof.a.neg();
