@@ -83,7 +83,7 @@ impl<E: PairingEngine> Precomputed<E> {
 
 #[cfg(test)]
 pub mod precomputed_tests {
-    use ark_bn254::{Bn254, Fq12, Fr, G1Affine, G1Projective};
+    use ark_bn254::{Bn254, Fq12, Fr, G1Projective};
     use ark_ec::{AffineCurve, PairingEngine, ProjectiveCurve};
     use ark_ff::{One, Zero};
     use ark_poly::{

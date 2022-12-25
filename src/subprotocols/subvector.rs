@@ -2,12 +2,9 @@ use std::{collections::BTreeMap, marker::PhantomData};
 
 use crate::{error::Error, data_structures::TableProvingKey};
 use ark_ff::{batch_inversion, FftField};
-use ark_poly::{
-    domain, univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
+use ark_poly::{univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
 };
-use ark_std::rand::{Rng, RngCore};
 use fast_eval::{PolyProcessor, PolyProcessorStrategy};
-// use fast_eval::*;
 
 /*
    Given public low degree extension of vector c and witness vector a, find subvector t of c such that for each a_j there exists some root w_i and value t_i, s.t. a_j = t_i, and c(w_i) = t_i

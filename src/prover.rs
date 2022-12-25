@@ -11,7 +11,7 @@ use crate::{
     data_structures::{CommitterKey, Proof, TableProvingKey, TableWitness},
     error::Error,
     kzg::{DegreeBound, Kzg},
-    precomputed::{self, Precomputed},
+    precomputed::Precomputed,
     subprotocols::{
         caulk_plus_core::CaulkPlusCore, generalized_inner_product::GeneralizedInnerProduct,
         subvector::SubvectorExtractor, well_formation::WellFormation,
