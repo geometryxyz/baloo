@@ -60,7 +60,7 @@ mod subprotocols_tests {
             table_index_mapping: c_mapping.clone(),
         };
 
-        let (v, t, col, subvector_indices, poly_processor) =
+        let (v, t, col, _subvector_indices, poly_processor) =
             SubvectorExtractor::compute_subvector_related_oracles(&a_evals, &table_pk).unwrap();
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&Fr::zero());

@@ -121,7 +121,6 @@ pub mod precomputed_tests {
         let zi = poly_processor.get_vanishing();
 
         let ri = poly_processor.get_ri();
-        assert_ne!(ri, vec![Fr::one()]); // tmp check while it's not implemented for FftBased Processor
 
         // commitment phase
         let mut w2 = G1Projective::zero();
