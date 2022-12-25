@@ -122,31 +122,3 @@ impl<F: FftField> SubvectorExtractor<F> {
     }
 }
 
-// #[cfg(test)]
-// mod subvector_tests {
-//     fn pad_with_unused_roots(subvector_indices: &Vec<usize>, m: usize) {
-//         // subvector_indices are sorted
-//         let mut curr_root = 0;
-//         let mut to_append = m - subvector_indices.len();
-//         let mut i = 0;
-//         while to_append > 0 {
-//             if i != subvector_indices[curr_root] {
-//                 to_append -= 1;
-//                 println!("append {}", i);
-//             }
-//             else {
-//                 curr_root += 1;
-//             }
-
-//             i += 1;
-//         }
-//     }
-
-//     #[test]
-//     fn test_padding() {
-//         let x = vec![5usize, 8, 9, 10, 15, 16, 21, 25, 39, 48];
-//         let m = 16;
-
-//         pad_with_unused_roots(&x, m);
-//     }
-// }
