@@ -76,7 +76,7 @@ mod generalized_inner_product_tests {
         for i in 0..evaluation_domain.len() {
             let mut l_i = DensePolynomial::from_coefficients_slice(&[F::one()]);
             let x_i = evaluation_domain[i];
-            for j in 0..evaluation_domain.len() {
+            for (j, _) in evaluation_domain.iter().enumerate() {
                 if j != i {
                     let xi_minus_xj_inv = (x_i - evaluation_domain[j]).inverse().unwrap();
                     l_i = &l_i
@@ -109,10 +109,10 @@ mod generalized_inner_product_tests {
         let mut ls_zero_inverses = ls.iter().map(|li| li.evaluate(&zero)).collect::<Vec<F>>();
         batch_inversion(&mut ls_zero_inverses);
 
-        let mut zI = DensePolynomial::from_coefficients_slice(&[F::one()]);
+        let mut z_i = DensePolynomial::from_coefficients_slice(&[F::one()]);
         for &omega_i in roots.iter() {
             let current_root = DensePolynomial::from_coefficients_slice(&[omega_i, -F::one()]);
-            zI = &zI * &current_root;
+            z_i = &z_i * &current_root;
         }
 
         let a_evals = (0..n).map(|_| F::rand(rng)).collect::<Vec<F>>();
@@ -135,7 +135,7 @@ mod generalized_inner_product_tests {
             b += (b_eval, li);
         }
 
-        (zI, a, b, inner_product)
+        (z_i, a, b, inner_product)
     }
 
     #[test]

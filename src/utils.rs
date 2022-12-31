@@ -13,7 +13,7 @@ pub fn unsafe_setup_from_rng<E: PairingEngine, R: RngCore>(
 ) -> (Vec<E::G1Affine>, Vec<E::G2Affine>) {
     let tau = E::Fr::rand(rng);
     let size = max(max_power_g1 + 1, max_power_g2 + 1);
-    let powers_of_tau: Vec<E::Fr> = iter::successors(Some(E::Fr::one()), |p| Some(p.clone() * tau))
+    let powers_of_tau: Vec<E::Fr> = iter::successors(Some(E::Fr::one()), |p| Some(*p * tau))
         .take(size)
         .collect();
 
@@ -41,7 +41,7 @@ pub fn unsafe_setup_from_tau<E: PairingEngine, R: RngCore>(
     tau: E::Fr,
 ) -> (Vec<E::G1Affine>, Vec<E::G2Affine>) {
     let size = max(max_power_g1 + 1, max_power_g2 + 1);
-    let powers_of_tau: Vec<E::Fr> = iter::successors(Some(E::Fr::one()), |p| Some(p.clone() * tau))
+    let powers_of_tau: Vec<E::Fr> = iter::successors(Some(E::Fr::one()), |p| Some(*p * tau))
         .take(size)
         .collect();
 

@@ -41,11 +41,7 @@ impl<E: PairingEngine> Prover<E> {
         };
 
         let (v, t, col, subvector_indices, poly_processor) =
-            SubvectorExtractor::compute_subvector_related_oracles(
-                &phi_evals,
-                &table_key,
-            )
-            .unwrap();
+            SubvectorExtractor::compute_subvector_related_oracles(&phi_evals, table_key).unwrap();
 
         let zi = poly_processor.get_vanishing();
         let mut tau_normalizers = poly_processor.batch_evaluate_lagrange_basis(&E::Fr::zero());
@@ -137,19 +133,13 @@ impl<E: PairingEngine> Prover<E> {
         // TODO: Check why deg(zI) = exactly X^m. Imo it should be < m or to check that it's exactly X^k
         let w2 = Kzg::<E>::batch_open_g1_at_zero_with_bounds(
             &ck.srs_g1,
-            &[zi.clone(), r.clone()],
+            &[zi.clone(), r],
             &[DegreeBound::Exact, DegreeBound::LessThan],
             gamma,
             domain_v.size(),
         );
 
-        let w3 = Kzg::<E>::batch_open_g1(
-            &ck.srs_g1,
-            &[d.clone(), zi.clone(), p1.clone()],
-            beta,
-            gamma,
-            None,
-        );
+        let w3 = Kzg::<E>::batch_open_g1(&ck.srs_g1, &[d, zi, p1.clone()], beta, gamma, None);
         let w4 = Kzg::<E>::batch_open_g1(&ck.srs_g1, &[e, p2], rho, gamma, None);
 
         let proof = Proof {

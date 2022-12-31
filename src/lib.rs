@@ -27,19 +27,20 @@ mod lib_tests {
     use crate::utils::unsafe_setup_from_rng;
     use crate::verifier::Verifier;
 
+    type PrepareResult<E> = (
+        CommitterKey<E>,
+        TableProvingKey<<E as PairingEngine>::Fr>,
+        TableWitness<<E as PairingEngine>::Fr>,
+        Precomputed<E>,
+        CommonInput<E>,
+        <E as PairingEngine>::G1Affine,
+    );
     fn prepare<E: PairingEngine, R: RngCore>(
         h: usize,
         m: usize,
         subvector_positions: &[usize],
         rng: &mut R,
-    ) -> (
-        CommitterKey<E>,
-        TableProvingKey<E::Fr>,
-        TableWitness<E::Fr>,
-        Precomputed<E>,
-        CommonInput<E>,
-        E::G1Affine,
-    ) {
+    ) -> PrepareResult<E> {
         assert_eq!(subvector_positions.len(), m);
         let domain_h = GeneralEvaluationDomain::<E::Fr>::new(h).unwrap();
         let domain_v = GeneralEvaluationDomain::<E::Fr>::new(m).unwrap();

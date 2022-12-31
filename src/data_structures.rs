@@ -28,11 +28,7 @@ impl<F: FftField> TableProvingKey<F> {
         Self {
             domain_size: c_evals.len(),
             table_values: c_evals.to_vec(),
-            table_index_mapping: c_evals
-                .iter()
-                .enumerate()
-                .map(|(i, ci)| (ci.clone(), i))
-                .collect(),
+            table_index_mapping: c_evals.iter().enumerate().map(|(i, ci)| (*ci, i)).collect(),
         }
     }
 
@@ -40,7 +36,7 @@ impl<F: FftField> TableProvingKey<F> {
         domain_h: GeneralEvaluationDomain<F>,
         c: &DensePolynomial<F>,
     ) -> Self {
-        let table_evals = domain_h.fft(&c);
+        let table_evals = domain_h.fft(c);
         Self::from_table_evals(&table_evals)
     }
 }

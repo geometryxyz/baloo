@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, marker::PhantomData};
 
-use crate::{error::Error, data_structures::TableProvingKey};
+use crate::{data_structures::TableProvingKey, error::Error};
 use ark_ff::{batch_inversion, FftField};
-use ark_poly::{univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
+use ark_poly::{
+    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
 };
 use fast_eval::{PolyProcessor, PolyProcessorStrategy};
 
@@ -20,20 +21,19 @@ pub struct SubvectorExtractor<F: FftField> {
     _f: PhantomData<F>,
 }
 
+type SubvectorResult<F> = (
+    DensePolynomial<F>,
+    DensePolynomial<F>,
+    Vec<usize>,
+    Vec<usize>,
+    Box<dyn PolyProcessor<F>>,
+);
+
 impl<F: FftField> SubvectorExtractor<F> {
     pub fn compute_subvector_related_oracles(
         a: &[F],
         table_pk: &TableProvingKey<F>,
-    ) -> Result<
-        (
-            DensePolynomial<F>,
-            DensePolynomial<F>,
-            Vec<usize>,
-            Vec<usize>,
-            Box<dyn PolyProcessor<F>>,
-        ),
-        Error,
-    > {
+    ) -> Result<SubvectorResult<F>, Error> {
         let domain_h = GeneralEvaluationDomain::<F>::new(table_pk.domain_size).unwrap();
         let domain_m = GeneralEvaluationDomain::<F>::new(a.len()).unwrap();
 
@@ -75,12 +75,12 @@ impl<F: FftField> SubvectorExtractor<F> {
             roots.push(*eta_i);
         }
 
-        let mut subvector_indices: Vec<usize> = roots_mapping.keys().map(|i| i.clone()).collect();
+        let mut subvector_indices: Vec<usize> = roots_mapping.keys().copied().collect();
 
         Self::pad_with_unused_roots(
             &mut subvector_indices,
             &mut roots,
-            &mut t_evals, 
+            &mut t_evals,
             &table_pk.table_values,
             domain_m.size(),
             &domain_h,
@@ -96,7 +96,7 @@ impl<F: FftField> SubvectorExtractor<F> {
         subvector_indices: &mut Vec<usize>,
         roots: &mut Vec<F>,
         t_evals: &mut Vec<F>,
-        c_evals: &Vec<F>,
+        c_evals: &[F],
         m: usize,
         domain: &GeneralEvaluationDomain<F>,
     ) {
@@ -118,4 +118,3 @@ impl<F: FftField> SubvectorExtractor<F> {
         }
     }
 }
-

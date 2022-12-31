@@ -19,9 +19,12 @@ mod subprotocols_tests {
     };
 
     use super::subvector::SubvectorExtractor;
-    use crate::{subprotocols::{
-        generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
-    }, data_structures::TableProvingKey};
+    use crate::{
+        data_structures::TableProvingKey,
+        subprotocols::{
+            generalized_inner_product::GeneralizedInnerProduct, well_formation::WellFormation,
+        },
+    };
 
     fn prepare<F: FftField, R: RngCore>(
         h: usize,
@@ -48,16 +51,13 @@ mod subprotocols_tests {
         let subvector_positions = [95usize, 43, 16, 100, 4, 26, 12, 83];
         let (c_evals, a_evals) = prepare::<Fr, StdRng>(h, m, &subvector_positions, &mut rng);
 
-        let c_mapping: BTreeMap<Fr, usize> = c_evals
-            .iter()
-            .enumerate()
-            .map(|(i, ci)| (ci.clone(), i))
-            .collect();
+        let c_mapping: BTreeMap<Fr, usize> =
+            c_evals.iter().enumerate().map(|(i, ci)| (*ci, i)).collect();
 
         let table_pk = TableProvingKey {
             domain_size: h,
-            table_values: c_evals.clone(),
-            table_index_mapping: c_mapping.clone(),
+            table_values: c_evals,
+            table_index_mapping: c_mapping,
         };
 
         let (v, t, col, _subvector_indices, poly_processor) =
