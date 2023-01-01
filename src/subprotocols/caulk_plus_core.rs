@@ -11,7 +11,7 @@ pub struct CaulkPlusCore<E: PairingEngine> {
 
 impl<E: PairingEngine> CaulkPlusCore<E> {
     pub fn compute_quotients(
-        ri: &Vec<E::Fr>,
+        ri: &[E::Fr],
         subvector_indices: &[usize],
         precomputed: &Precomputed<E>,
     ) -> (E::G1Affine, E::G1Affine) {
